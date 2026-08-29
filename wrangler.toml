@@ -1,0 +1,8 @@
+name = "financas-diarias"
+compatibility_date = "2026-08-28"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "financas-diarias-db"
+database_id = "COLE_AQUI_O_DATABASE_ID"
