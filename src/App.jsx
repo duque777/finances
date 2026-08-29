@@ -124,54 +124,199 @@ function ExpenseModal({ expense, onClose, onSaved }) {
 }
 
 function MonthSetup({ initial, onSaved }) {
-  const now = new Date()
-  const [year, setYear] = useState(initial?.year || now.getFullYear())
-  const [month, setMonth] = useState(initial?.month || now.getMonth() + 1)
-  const [monthly, setMonthly] = useState(initial?.monthly_limit ? toCurrencyInput(initial.monthly_limit) : '')
-  const [weekly, setWeekly] = useState(initial?.weekly_limit ? toCurrencyInput(initial.weekly_limit) : '')
+  const today = isoToday()
+
+  const [name, setName] = useState(initial?.name || '')
+
+  const [startDate, setStartDate] = useState(
+    initial?.start_date || today
+  )
+
+  const [endDate, setEndDate] = useState(
+    initial?.end_date || ''
+  )
+
+  const [cycleLimit, setCycleLimit] = useState(
+    initial?.cycle_limit
+      ? toCurrencyInput(initial.cycle_limit)
+      : ''
+  )
+
+  const [weekly, setWeekly] = useState(
+    initial?.weekly_limit
+      ? toCurrencyInput(initial.weekly_limit)
+      : ''
+  )
+
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
   async function save(e) {
     e.preventDefault()
-    const monthlyLimit = parseMoney(monthly)
+
+    const numericCycleLimit = parseMoney(cycleLimit)
     const weeklyLimit = parseMoney(weekly)
-    if (monthlyLimit <= 0 || weeklyLimit <= 0) {
+
+    if (!startDate) {
+      setMessage('Informe a data inicial.')
+      return
+    }
+
+    if (!endDate) {
+      setMessage('Informe a data final.')
+      return
+    }
+
+    if (endDate < startDate) {
+      setMessage('A data final deve ser posterior à data inicial.')
+      return
+    }
+
+    if (numericCycleLimit <= 0 || weeklyLimit <= 0) {
       setMessage('Os dois limites devem ser maiores que zero.')
       return
     }
+
     setSaving(true)
     setMessage('')
+
     try {
       await api('/api/budgets', {
         method: 'POST',
-        body: JSON.stringify({ year: Number(year), month: Number(month), monthly_limit: monthlyLimit, weekly_limit: weeklyLimit }),
+
+        body: JSON.stringify({
+          name: name.trim() || null,
+
+          start_date: startDate,
+          end_date: endDate,
+
+          cycle_limit: numericCycleLimit,
+          weekly_limit: weeklyLimit,
+        }),
       })
-      setMessage('Limites salvos com sucesso.')
+
+      setMessage('Ciclo salvo com sucesso.')
+
       onSaved?.()
+
     } catch (err) {
+
       setMessage(err.message)
+
     } finally {
+
       setSaving(false)
     }
   }
 
   return (
     <section className="page-section setup-page">
+
       <div className="section-heading">
-        <div><span className="eyebrow">Planejamento</span><h1>Virar o mês</h1></div>
-      </div>
-      <p className="muted">Defina os limites que serão usados nos cálculos desse mês. Você pode editar esses valores depois.</p>
-      <form className="panel form-stack" onSubmit={save}>
-        <div className="two-cols">
-          <label><span>Mês</span><select value={month} onChange={(e) => setMonth(e.target.value)}>{MONTHS.map((name, i) => <option key={name} value={i+1}>{name}</option>)}</select></label>
-          <label><span>Ano</span><input type="number" min="2020" max="2100" value={year} onChange={(e) => setYear(e.target.value)} /></label>
+        <div>
+          <span className="eyebrow">Planejamento</span>
+          <h1>Virar o ciclo</h1>
         </div>
-        <label><span>Limite mensal</span><div className="money-input-wrap"><b>R$</b><input inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="3.000,00" /></div></label>
-        <label><span>Limite semanal</span><div className="money-input-wrap"><b>R$</b><input inputMode="decimal" value={weekly} onChange={(e) => setWeekly(e.target.value)} placeholder="700,00" /></div></label>
-        {message && <div className={message.includes('sucesso') ? 'success-box' : 'error-box'}>{message}</div>}
-        <button className="primary-btn" disabled={saving}>{saving ? 'Salvando...' : `Salvar ${MONTHS[Number(month)-1]}`}</button>
+      </div>
+
+      <p className="muted">
+        Informe o período da próxima fatura e os limites
+        que serão usados durante esse ciclo.
+      </p>
+
+      <form
+        className="panel form-stack"
+        onSubmit={save}
+      >
+
+        <label>
+          <span>Nome do ciclo <em>opcional</em></span>
+
+          <input
+            maxLength="50"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex.: Setembro"
+          />
+        </label>
+
+        <div className="two-cols">
+
+          <label>
+            <span>Início do ciclo</span>
+
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </label>
+
+          <label>
+            <span>Fechamento</span>
+
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </label>
+
+        </div>
+
+        <label>
+          <span>Limite do ciclo</span>
+
+          <div className="money-input-wrap">
+            <b>R$</b>
+
+            <input
+              inputMode="decimal"
+              value={cycleLimit}
+              onChange={(e) => setCycleLimit(e.target.value)}
+              placeholder="3.000,00"
+            />
+          </div>
+        </label>
+
+        <label>
+          <span>Limite semanal</span>
+
+          <div className="money-input-wrap">
+            <b>R$</b>
+
+            <input
+              inputMode="decimal"
+              value={weekly}
+              onChange={(e) => setWeekly(e.target.value)}
+              placeholder="700,00"
+            />
+          </div>
+        </label>
+
+        {message && (
+          <div
+            className={
+              message.includes('sucesso')
+                ? 'success-box'
+                : 'error-box'
+            }
+          >
+            {message}
+          </div>
+        )}
+
+        <button
+          className="primary-btn"
+          disabled={saving}
+        >
+          {saving
+            ? 'Salvando...'
+            : 'Salvar ciclo'}
+        </button>
+
       </form>
+
     </section>
   )
 }
@@ -216,28 +361,50 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  async function load() {
-    setLoading(true)
-    setError('')
-    try {
-      const [dash, latest] = await Promise.all([
-        api('/api/dashboard'),
-        api('/api/expenses?limit=8'),
-      ])
-      setDashboard(dash)
-      setExpenses(latest.items)
-      const current = await api(`/api/expenses?year=${dash.year}&month=${dash.month}&limit=500`)
+ async function load() {
+  setLoading(true)
+  setError('')
+
+  try {
+
+    const [dash, latest] = await Promise.all([
+      api('/api/dashboard'),
+      api('/api/expenses?limit=8'),
+    ])
+
+    setDashboard(dash)
+
+    setExpenses(latest.items)
+
+    if (dash.cycle) {
+
+      const current = await api(
+        `/api/expenses?start=${dash.cycle.start_date}&end=${dash.cycle.end_date}&limit=500`
+      )
+
       setMonthExpenses(current.items)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+
+    } else {
+
+      setMonthExpenses([])
     }
+
+  } catch (err) {
+
+    setError(err.message)
+
+  } finally {
+
+    setLoading(false)
   }
+}
 
   useEffect(() => { load() }, [])
 
-  const setupInitial = useMemo(() => dashboard?.budget || null, [dashboard])
+  const setupInitial = useMemo(
+  () => dashboard?.cycle || null,
+  [dashboard]
+)
 
   function openNew() { setModalExpense(undefined); setShowModal(true) }
   function openEdit(item) { setModalExpense(item); setShowModal(true) }
@@ -253,13 +420,25 @@ export default function App() {
 
         {!loading && !error && tab === 'home' && dashboard && <section className="page-section home-page">
           <div className="hero-row">
-            <div><span className="eyebrow">{MONTHS[dashboard.month - 1]} de {dashboard.year}</span><h1>Quanto posso gastar?</h1></div>
+            <div><span className="eyebrow">
+  {dashboard.cycle
+    ? dashboard.cycle.name || 'Ciclo atual'
+    : 'Sem ciclo configurado'}
+</span><h1>Quanto posso gastar?</h1></div>
             <button className="round-add" onClick={openNew}>+</button>
           </div>
 
-          {!dashboard.budget ? <div className="setup-callout"><strong>Configure os limites deste mês</strong><p>Antes de calcular o disponível, informe seu limite mensal e semanal.</p><button className="primary-btn" onClick={() => setTab('month')}>Configurar agora</button></div> : <>
+          {!dashboard.cycle ? <div className="setup-callout"><strong>Configure o ciclo da fatura</strong><p>Informe o período da fatura, o limite do ciclo e o limite semanal.</p><button className="primary-btn" onClick={() => setTab('month')}>Configurar agora</button></div> : <>
             <BudgetCard title="Esta semana" available={dashboard.week.available} spent={dashboard.week.spent} limit={dashboard.week.limit} subtitle={`${dashboard.week.start_br} — ${dashboard.week.end_br}`} />
-            <BudgetCard title="Este mês" available={dashboard.month_summary.available} spent={dashboard.month_summary.spent} limit={dashboard.month_summary.limit} subtitle={`${MONTHS[dashboard.month - 1]} / ${dashboard.year}`} />
+            <BudgetCard
+  title="Este ciclo"
+  available={dashboard.cycle_summary.available}
+  spent={dashboard.cycle_summary.spent}
+  limit={dashboard.cycle_summary.limit}
+  subtitle={
+    `${dashboard.cycle.start_br} — ${dashboard.cycle.end_br}`
+  }
+/>
           </>}
 
           <button className="big-expense-btn" onClick={openNew}><span>＋</span><div><strong>Lançar gasto</strong><small>Leva menos de 10 segundos</small></div></button>
@@ -269,8 +448,25 @@ export default function App() {
         </section>}
 
         {!loading && !error && tab === 'history' && <section className="page-section">
-          <div className="section-heading"><div><span className="eyebrow">Histórico</span><h1>Gastos do mês</h1></div><button className="round-add" onClick={openNew}>+</button></div>
-          <div className="history-summary"><span>Total em {dashboard ? MONTHS[dashboard.month - 1] : 'este mês'}</span><strong>{BRL.format(monthExpenses.reduce((sum, x) => sum + Number(x.amount), 0))}</strong></div>
+          <div className="section-heading"><div><span className="eyebrow">Histórico</span><h1>Gastos do ciclo</h1></div><button className="round-add" onClick={openNew}>+</button></div>
+         <div className="history-summary">
+
+  <span>
+    {dashboard?.cycle
+      ? `Total de ${dashboard.cycle.start_br} a ${dashboard.cycle.end_br}`
+      : 'Total do ciclo'}
+  </span>
+
+  <strong>
+    {BRL.format(
+      monthExpenses.reduce(
+        (sum, x) => sum + Number(x.amount),
+        0
+      )
+    )}
+  </strong>
+
+</div>
           <ExpenseList full items={monthExpenses} onEdit={openEdit} onDeleted={load} />
         </section>}
 
@@ -280,7 +476,7 @@ export default function App() {
       <nav className="bottom-nav">
         <button className={tab==='home'?'active':''} onClick={() => setTab('home')}><span>⌂</span><small>Início</small></button>
         <button className={tab==='history'?'active':''} onClick={() => setTab('history')}><span>≡</span><small>Histórico</small></button>
-        <button className={tab==='month'?'active':''} onClick={() => setTab('month')}><span>↻</span><small>Virar mês</small></button>
+        <button className={tab==='month'?'active':''} onClick={() => setTab('month')}><span>↻</span><small>Virar ciclo</small></button>
       </nav>
 
       {showModal && <ExpenseModal expense={modalExpense} onClose={() => setShowModal(false)} onSaved={saved} />}
